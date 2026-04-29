@@ -127,15 +127,14 @@ export default function App() {
     setView('admin-create');
   };
 
-  // 신규: 시험 복사 기능을 위한 핸들러
   const handleCopyExam = (exam: Exam) => {
-    setEditingExamId(null); // 편집 모드가 아님 (신규 생성을 의미)
-    setCustomExamId(exam.id + "-COPY"); // 기존 아이디 뒤에 COPY를 붙여줌
+    setEditingExamId(null);
+    setCustomExamId(exam.id + "-COPY");
     setNewExamTitle(exam.title + " (복사본)");
     setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
     setDisplayCount(exam.displayCount?.toString() || '');
     setView('admin-create');
-    showToast('시험 내용이 복사되었습니다. 코드를 수정하여 저장하세요!');
+    showToast('시험 내용이 복제되었습니다!');
   };
 
   const handleSaveExam = async () => {
@@ -175,6 +174,7 @@ export default function App() {
     } catch (e) { showToast('저장 실패'); }
   };
 
+  // --- [수정됨] 엑셀 업로드 시 기존 문제 뒤에 추가하는 로직 ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -203,12 +203,19 @@ export default function App() {
         return rows;
       };
       const allRows = parseCSV(content);
-      const parsed: Question[] = allRows.map(cols => ({
+      const parsedFromFile: Question[] = allRows.map(cols => ({
         text: cols[0], options: [cols[1], cols[2], cols[3], cols[4]], answerIndex: parseInt(cols[5]) - 1
       })).filter(q => q.text && q.options.length >= 4 && !isNaN(q.answerIndex));
-      if (parsed.length > 0) { setNewQuestions(parsed); showToast(`${parsed.length}문제 로드 완료!`); }
+      
+      if (parsedFromFile.length > 0) { 
+        // 기존에 비어있는 첫 문항이 있다면 제거하고 합치기
+        const existingNotEmpty = newQuestions.filter(q => q.text.trim() !== '');
+        setNewQuestions([...existingNotEmpty, ...parsedFromFile]); 
+        showToast(`${parsedFromFile.length}문제가 추가되었습니다!`); 
+      }
     };
     reader.readAsText(file);
+    e.target.value = ''; // 같은 파일 다시 올려도 인식되도록 초기화
   };
 
   const startExam = () => {
@@ -323,7 +330,6 @@ export default function App() {
                       </div>
                       <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         <button onClick={() => copyToClipboard(exam.id)} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm">🔗 링크복사</button>
-                        {/* 신규: 복제 버튼 아이콘 */}
                         <button onClick={() => handleCopyExam(exam)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-colors" title="시험 복제">📋</button>
                         <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors" title="수정">✏️</button>
                         <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl" title="삭제">🗑️</button>
@@ -411,7 +417,7 @@ export default function App() {
                 <input type="number" value={displayCount} onChange={e => setDisplayCount(e.target.value)} className="w-20 p-2 rounded-xl border bg-slate-50 text-center outline-none" placeholder="전체"/>
               </div>
               <label className="w-full sm:w-auto bg-green-600 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold cursor-pointer hover:bg-green-700 transition-all shadow-md">
-                <span>📊</span> CSV 대량 업로드<input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                <span>📊</span> CSV 문제 추가하기<input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
               </label>
             </div>
             <div className="space-y-6">
@@ -457,7 +463,7 @@ export default function App() {
                 <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-black">{studentName[0]}</div>
                 <span className="font-bold text-slate-700">{studentName} 님 응시 중</span>
               </div>
-              <span className="text-xs font-black px-5 py-2.5 bg-slate-900 text-white rounded-full tracking-widest">{Object.keys(studentAnswers).length} / {activeQuestions.length}</span>
+              <span className="text-xs font-black px-5 py-2.5 bg-slate-900 text-white rounded-full tracking-widest">{Object.keys(studentAnswers).length} / {activeQuestions.length} 완료</span>
             </div>
             {activeQuestions.map((q, i) => (
               <div key={i} className="bg-white p-12 rounded-[3.5rem] border shadow-sm space-y-10">
