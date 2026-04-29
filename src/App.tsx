@@ -107,7 +107,8 @@ export default function App() {
   };
 
   const handleAdminLogin = () => {
-    if (adminPasswordInput === '1234') { 
+    // 비밀번호를 2026으로 수정했습니다.
+    if (adminPasswordInput === '2026') { 
       setView('admin-dash'); setAdminPasswordInput(''); 
       window.history.replaceState({}, '', window.location.pathname);
     } else showToast('비밀번호 불일치');
@@ -202,7 +203,8 @@ export default function App() {
         {view === 'admin-login' && (
           <div className="max-w-md mx-auto py-20 text-center">
             <h2 className="text-2xl font-bold mb-8">관리자 인증</h2>
-            <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} className="w-full border-2 rounded-2xl p-4 mb-4 text-center text-lg" placeholder="비밀번호: 1234"/>
+            {/* 힌트를 없애고 입력 시 * 로 표시되도록 type="password"를 유지했습니다. */}
+            <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} className="w-full border-2 rounded-2xl p-4 mb-4 text-center text-lg" placeholder="비밀번호를 입력하세요"/>
             <button onClick={handleAdminLogin} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold">접속</button>
           </div>
         )}
@@ -262,7 +264,7 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <button onClick={() => setNewQuestions([...newQuestions, {text:'', options:['','','',''], answerIndex:0}])} className="w-full py-6 bg-white border-2 border-dashed rounded-[2.5rem] text-slate-400 font-bold">➕ 문제 추가</button>
+              <button onClick={() => setNewQuestions([...newQuestions, {text:'', options:['','',''], answerIndex:0}])} className="w-full py-6 bg-white border-2 border-dashed rounded-[2.5rem] text-slate-400 font-bold">➕ 문제 추가</button>
             </div>
             <button onClick={handleSaveExam} className="w-full py-6 bg-blue-900 text-white rounded-[2.5rem] font-black text-xl sticky bottom-4">저장하기</button>
           </div>
