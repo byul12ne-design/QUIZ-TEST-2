@@ -13,6 +13,7 @@ interface Question {
 interface Exam {
   id: string;
   title: string;
+  notice?: string; // 공지사항 필드 추가
   questions: Question[];
   displayCount: number;
   createdAt: number;
@@ -64,6 +65,7 @@ export default function App() {
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [customExamId, setCustomExamId] = useState(''); 
   const [newExamTitle, setNewExamTitle] = useState('');
+  const [newExamNotice, setNewExamNotice] = useState(''); // 공지사항 입력 상태
   const [displayCount, setDisplayCount] = useState('');
   const [newQuestions, setNewQuestions] = useState<Question[]>([
     { text: '', options: ['', '', '', ''], answerIndex: 0 }
@@ -122,6 +124,7 @@ export default function App() {
     setEditingExamId(exam.id);
     setCustomExamId(exam.id);
     setNewExamTitle(exam.title);
+    setNewExamNotice(exam.notice || '');
     setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
     setDisplayCount(exam.displayCount?.toString() || '');
     setView('admin-create');
@@ -131,6 +134,7 @@ export default function App() {
     setEditingExamId(null);
     setCustomExamId(exam.id + "-COPY");
     setNewExamTitle(exam.title + " (복사본)");
+    setNewExamNotice(exam.notice || '');
     setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
     setDisplayCount(exam.displayCount?.toString() || '');
     setView('admin-create');
@@ -149,6 +153,7 @@ export default function App() {
     const dCount = parseInt(displayCount) || newQuestions.length;
     const examData = { 
       title: newExamTitle, 
+      notice: newExamNotice,
       questions: newQuestions, 
       displayCount: dCount, 
       createdAt: Date.now() 
@@ -170,11 +175,10 @@ export default function App() {
           await setDoc(doc(db, 'exams', finalId), examData);
       }
       setView('admin-dash'); showToast('저장되었습니다.');
-      setNewExamTitle(''); setCustomExamId(''); setNewQuestions([{ text: '', options: ['', '', '', ''], answerIndex: 0 }]); setDisplayCount(''); setEditingExamId(null);
+      setNewExamTitle(''); setCustomExamId(''); setNewExamNotice(''); setNewQuestions([{ text: '', options: ['', '', '', ''], answerIndex: 0 }]); setDisplayCount(''); setEditingExamId(null);
     } catch (e) { showToast('저장 실패'); }
   };
 
-  // --- [수정됨] 엑셀 업로드 시 기존 문제 뒤에 추가하는 로직 ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -208,14 +212,13 @@ export default function App() {
       })).filter(q => q.text && q.options.length >= 4 && !isNaN(q.answerIndex));
       
       if (parsedFromFile.length > 0) { 
-        // 기존에 비어있는 첫 문항이 있다면 제거하고 합치기
         const existingNotEmpty = newQuestions.filter(q => q.text.trim() !== '');
         setNewQuestions([...existingNotEmpty, ...parsedFromFile]); 
         showToast(`${parsedFromFile.length}문제가 추가되었습니다!`); 
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // 같은 파일 다시 올려도 인식되도록 초기화
+    e.target.value = ''; 
   };
 
   const startExam = () => {
@@ -303,7 +306,7 @@ export default function App() {
           <div className="max-w-md mx-auto py-20 text-center">
             <h2 className="text-2xl font-bold mb-8">관리자 인증</h2>
             <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} className="w-full border-2 rounded-2xl p-4 mb-4 text-center text-lg outline-none focus:border-blue-500" placeholder="비밀번호를 입력하세요"/>
-            <button onClick={handleAdminLogin} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold">접속</button>
+            <button onClick={handleAdminLogin} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">접속</button>
           </div>
         )}
 
@@ -318,7 +321,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h3 className="text-2xl font-bold">시험 목록</h3>
-                  <button onClick={() => {setEditingExamId(null); setCustomExamId(''); setNewExamTitle(''); setNewQuestions([{text:'', options:['','','',''], answerIndex:0}]); setView('admin-create');}} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold"><span>➕</span> 새 시험</button>
+                  <button onClick={() => {setEditingExamId(null); setCustomExamId(''); setNewExamTitle(''); setNewExamNotice(''); setNewQuestions([{text:'', options:['','','',''], answerIndex:0}]); setView('admin-create');}} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold"><span>➕</span> 새 시험</button>
                 </div>
                 <div className="grid gap-4">
                   {exams.map(exam => (
@@ -330,9 +333,9 @@ export default function App() {
                       </div>
                       <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         <button onClick={() => copyToClipboard(exam.id)} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm">🔗 링크복사</button>
-                        <button onClick={() => handleCopyExam(exam)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-colors" title="시험 복제">📋</button>
-                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors" title="수정">✏️</button>
-                        <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl" title="삭제">🗑️</button>
+                        <button onClick={() => handleCopyExam(exam)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-colors">📋</button>
+                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">✏️</button>
+                        <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl">🗑️</button>
                       </div>
                     </div>
                   ))}
@@ -365,9 +368,7 @@ export default function App() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-500">{r.examTitle}</td>
-                            <td className="px-6 py-4">
-                              <span className={`font-bold ${r.score >= 80 ? 'text-green-600' : r.score >= 50 ? 'text-blue-600' : 'text-red-500'}`}>{r.score}점</span>
-                            </td>
+                            <td className="px-6 py-4 font-bold text-blue-600">{r.score}점</td>
                             <td className="px-6 py-4 text-right text-xs text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</td>
                           </tr>
                         ))}
@@ -375,10 +376,8 @@ export default function App() {
                     </table>
                   </div>
                 </div>
-                
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-bold">오답 TOP 5</h3>
-                  <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-4">
+                <div className="space-y-6 text-2xl font-bold">오답 TOP 5
+                   <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-4">
                     {getQuestionStats().slice(0, 5).map((stat, idx) => (
                       <div key={idx} className="space-y-2">
                         <div className="flex justify-between items-start gap-4">
@@ -390,7 +389,6 @@ export default function App() {
                         </div>
                       </div>
                     ))}
-                    {getQuestionStats().length === 0 && <p className="text-center text-slate-400 py-10 text-sm">데이터가 쌓이면 통계가 표시됩니다.</p>}
                   </div>
                 </div>
               </div>
@@ -410,6 +408,11 @@ export default function App() {
                  </div>
               </div>
             </div>
+
+            <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-4">
+              <span className="text-xs font-black text-slate-400 tracking-widest uppercase">📌 선생님 공지사항</span>
+              <textarea value={newExamNotice} onChange={e => setNewExamNotice(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:ring-2 ring-blue-100 h-24 resize-none" placeholder="시험 시작 전 응시자에게 보여줄 공지사항을 입력하세요 (예: 총 20문제이며 80점 이상 시 합격입니다.)"/>
+            </div>
             
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-[2.5rem] border shadow-sm">
               <div className="flex items-center gap-4 text-sm font-bold text-blue-700">
@@ -426,7 +429,7 @@ export default function App() {
                   <button onClick={() => setNewQuestions(newQuestions.filter((_, idx) => idx !== i))} className="absolute top-8 right-8 text-slate-300 hover:text-red-500 transition-colors">🗑️</button>
                   <div className="space-y-2">
                     <span className="text-xs font-black text-blue-300 uppercase tracking-widest">Question {i+1}</span>
-                    <textarea value={q.text} onChange={e => setNewQuestions(prev => prev.map((item, idx) => idx === i ? { ...item, text: e.target.value } : item))} className="w-full text-xl font-bold outline-none resize-none bg-transparent" placeholder="문제 내용을 입력하세요" rows={2}/>
+                    <textarea value={q.text} onChange={e => setNewQuestions(prev => prev.map((item, idx) => idx === i ? { ...item, text: e.target.value } : item))} className="w-full text-xl font-bold outline-none resize-none bg-transparent" placeholder="문제 내용" rows={2}/>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {q.options.map((opt, oi) => (
@@ -438,21 +441,34 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <button onClick={() => setNewQuestions([...newQuestions, {text:'', options:['','','',''], answerIndex:0}])} className="w-full py-10 bg-white border-4 border-dashed border-slate-100 rounded-[3rem] text-slate-300 font-black text-lg hover:border-blue-100 hover:text-blue-200 transition-all">+ 직접 문항 추가하기</button>
+              <button onClick={() => setNewQuestions([...newQuestions, {text:'', options:['','','',''], answerIndex:0}])} className="w-full py-10 bg-white border-4 border-dashed border-slate-100 rounded-[3rem] text-slate-300 font-black text-lg hover:border-blue-100 transition-all">+ 직접 문항 추가하기</button>
             </div>
             <button onClick={handleSaveExam} className="w-full py-6 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl sticky bottom-4 shadow-2xl active:scale-95 transition-transform">설정 저장하고 출시하기</button>
           </div>
         )}
 
         {view === 'student-entry' && (
-          <div className="max-w-md mx-auto py-20 text-center space-y-10">
-            <div className="text-8xl animate-bounce">🏆</div>
-            <h2 className="text-4xl font-black text-slate-800">{exams.find(e => e.id === currentExamId)?.title}</h2>
-            <div className="space-y-4">
-              <p className="text-slate-400 font-bold">응시자 이름을 입력하고 시작하세요.</p>
-              <input value={studentName} onChange={e => setStudentName(e.target.value)} className="w-full border-4 border-slate-100 rounded-[2rem] p-6 text-center text-2xl font-black outline-none focus:border-blue-500 transition-all" placeholder="성함 입력"/>
+          <div className="max-w-md mx-auto py-10 space-y-10">
+            <div className="text-center space-y-4">
+                <div className="text-8xl animate-bounce">🏆</div>
+                <h2 className="text-4xl font-black text-slate-800">{exams.find(e => e.id === currentExamId)?.title}</h2>
             </div>
-            <button onClick={startExam} className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">테스트 시작하기</button>
+            
+            {/* 공지사항 출력 영역 */}
+            {exams.find(e => e.id === currentExamId)?.notice && (
+              <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 space-y-3 relative overflow-hidden shadow-inner">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
+                <h4 className="text-xs font-black text-blue-600 tracking-widest uppercase flex items-center gap-2">📢 선생님 공지사항</h4>
+                <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap italic">
+                  "{exams.find(e => e.id === currentExamId)?.notice}"
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <input value={studentName} onChange={e => setStudentName(e.target.value)} className="w-full border-4 border-slate-100 rounded-[2rem] p-6 text-center text-2xl font-black outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="성함 입력"/>
+              <button onClick={startExam} className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">시험 시작하기</button>
+            </div>
           </div>
         )}
 
@@ -467,14 +483,11 @@ export default function App() {
             </div>
             {activeQuestions.map((q, i) => (
               <div key={i} className="bg-white p-12 rounded-[3.5rem] border shadow-sm space-y-10">
-                <h4 className="text-3xl font-black leading-tight tracking-tight text-slate-800 flex gap-4">
-                  <span className="text-blue-100 italic">Q{i+1}.</span>{q.text}
-                </h4>
+                <h4 className="text-3xl font-black text-slate-800 flex gap-4"><span className="text-blue-100 italic">Q{i+1}.</span>{q.text}</h4>
                 <div className="grid gap-4">
                   {q.options.map((opt, oi) => (
                     <button key={oi} onClick={() => setStudentAnswers({...studentAnswers, [i]: oi})} className={`text-left p-8 rounded-[2rem] border-2 font-bold text-lg transition-all ${studentAnswers[i] === oi ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-inner translate-x-2' : 'border-slate-50 hover:bg-slate-50 text-slate-500'}`}>
-                      <span className={`inline-block w-8 h-8 rounded-lg text-center leading-8 mr-4 ${studentAnswers[i] === oi ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{oi+1}</span>
-                      {opt}
+                      <span className={`inline-block w-8 h-8 rounded-lg text-center leading-8 mr-4 ${studentAnswers[i] === oi ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{oi+1}</span>{opt}
                     </button>
                   ))}
                 </div>
