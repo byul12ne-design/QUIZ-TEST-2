@@ -119,7 +119,7 @@ export default function App() {
 
   const handleEditExam = (exam: Exam) => {
     setEditingExamId(exam.id);
-    setNewExamTitle(exam.title); // 기존 제목을 상태에 반영
+    setNewExamTitle(exam.title);
     setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
     setDisplayCount(exam.displayCount?.toString() || '');
     setView('admin-create');
@@ -129,7 +129,7 @@ export default function App() {
     if (!newExamTitle.trim()) return showToast('제목을 입력해주세요.');
     const dCount = parseInt(displayCount) || newQuestions.length;
     const examData = { 
-      title: newExamTitle, // 수정된 제목이 저장됨
+      title: newExamTitle, 
       questions: newQuestions, 
       displayCount: dCount, 
       createdAt: editingExamId ? exams.find(e => e.id === editingExamId)?.createdAt || Date.now() : Date.now() 
@@ -207,6 +207,8 @@ export default function App() {
   const getQuestionStats = () => {
     const stats: Record<string, { total: number, wrong: number }> = {};
     results.forEach(res => {
+      // 방어 코드 추가: activeQuestions가 없는 옛날 데이터는 무시합니다.
+      if (!res.activeQuestions) return; 
       res.activeQuestions.forEach((q, idx) => {
         if (!stats[q.text]) stats[q.text] = { total: 0, wrong: 0 };
         stats[q.text].total += 1;
@@ -288,7 +290,7 @@ export default function App() {
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
                         <button onClick={() => copyToClipboard(exam.id)} className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold">🔗 링크복사</button>
-                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors" title="제목 및 문제 수정">✏️</button>
+                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">✏️</button>
                         <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl">🗑️</button>
                       </div>
                     </div>
@@ -315,7 +317,12 @@ export default function App() {
                       <tbody className="divide-y">
                         {results.map(r => (
                           <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 font-bold">{r.studentName}</td>
+                            <td className="px-6 py-4 font-bold">
+                              <div className="flex items-center gap-2">
+                                {r.studentName}
+                                <button onClick={async () => {if(window.confirm('기록을 삭제하시겠습니까?')) await deleteDoc(doc(db, 'results', r.id))}} className="text-red-300 hover:text-red-500 text-[10px]">삭제</button>
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-sm text-slate-500">{r.examTitle}</td>
                             <td className="px-6 py-4">
                               <span className={`font-bold ${r.score >= 80 ? 'text-green-600' : r.score >= 50 ? 'text-blue-600' : 'text-red-500'}`}>{r.score}점</span>
@@ -342,7 +349,7 @@ export default function App() {
                         </div>
                       </div>
                     ))}
-                    {getQuestionStats().length === 0 && <p className="text-center text-slate-400 py-10">데이터가 없습니다.</p>}
+                    {getQuestionStats().length === 0 && <p className="text-center text-slate-400 py-10 text-sm">충분한 데이터가 쌓이면<br/>오답률 순위가 표시됩니다.</p>}
                   </div>
                 </div>
               </div>
@@ -354,12 +361,7 @@ export default function App() {
           <div className="space-y-8 pb-20">
             <div className="flex items-center gap-4">
               <button onClick={() => setView('admin-dash')} className="text-2xl hover:bg-white p-2 rounded-full">⬅️</button>
-              <input 
-                value={newExamTitle} 
-                onChange={e => setNewExamTitle(e.target.value)} 
-                className="flex-1 text-3xl font-black outline-none bg-transparent border-b-2 border-transparent focus:border-blue-500 transition-all" 
-                placeholder="시험 제목을 입력하세요"
-              />
+              <input value={newExamTitle} onChange={e => setNewExamTitle(e.target.value)} className="flex-1 text-3xl font-black outline-none bg-transparent border-b-2 border-transparent focus:border-blue-500 transition-all" placeholder="시험 제목을 입력하세요"/>
             </div>
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-[2.5rem] border shadow-sm">
               <div className="flex items-center gap-4 text-sm font-bold text-blue-700">
