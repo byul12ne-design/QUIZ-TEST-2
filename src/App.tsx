@@ -62,7 +62,7 @@ export default function App() {
 
   const [adminPasswordInput, setAdminPasswordInput] = useState(''); 
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
-  const [customExamId, setCustomExamId] = useState(''); // 사용자가 지정할 시험 코드
+  const [customExamId, setCustomExamId] = useState(''); 
   const [newExamTitle, setNewExamTitle] = useState('');
   const [displayCount, setDisplayCount] = useState('');
   const [newQuestions, setNewQuestions] = useState<Question[]>([
@@ -120,18 +120,28 @@ export default function App() {
 
   const handleEditExam = (exam: Exam) => {
     setEditingExamId(exam.id);
-    setCustomExamId(exam.id); // 기존 ID를 보여줌
+    setCustomExamId(exam.id);
     setNewExamTitle(exam.title);
     setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
     setDisplayCount(exam.displayCount?.toString() || '');
     setView('admin-create');
   };
 
+  // 신규: 시험 복사 기능을 위한 핸들러
+  const handleCopyExam = (exam: Exam) => {
+    setEditingExamId(null); // 편집 모드가 아님 (신규 생성을 의미)
+    setCustomExamId(exam.id + "-COPY"); // 기존 아이디 뒤에 COPY를 붙여줌
+    setNewExamTitle(exam.title + " (복사본)");
+    setNewQuestions(JSON.parse(JSON.stringify(exam.questions)));
+    setDisplayCount(exam.displayCount?.toString() || '');
+    setView('admin-create');
+    showToast('시험 내용이 복사되었습니다. 코드를 수정하여 저장하세요!');
+  };
+
   const handleSaveExam = async () => {
     if (!newExamTitle.trim()) return showToast('제목을 입력해주세요.');
     
-    // 시험 코드 설정 로직
-    let finalId = customExamId.trim().replace(/\s+/g, '-'); // 공백을 하이픈으로 변경
+    let finalId = customExamId.trim().replace(/\s+/g, '-'); 
     if (!finalId) {
         if (editingExamId) finalId = editingExamId;
         else finalId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -142,23 +152,20 @@ export default function App() {
       title: newExamTitle, 
       questions: newQuestions, 
       displayCount: dCount, 
-      createdAt: editingExamId ? exams.find(e => e.id === editingExamId)?.createdAt || Date.now() : Date.now() 
+      createdAt: Date.now() 
     };
 
     try {
       if (editingExamId) {
-          // ID가 바뀌지 않았다면 업데이트
           if (editingExamId === finalId) {
               await updateDoc(doc(db, 'exams', editingExamId), examData);
           } else {
-              // ID가 바뀌었다면 새 문서 생성 후 기존 삭제 (커스텀 ID 적용)
               const docSnap = await getDoc(doc(db, 'exams', finalId));
               if (docSnap.exists()) return showToast('이미 사용 중인 시험 코드입니다.');
               await setDoc(doc(db, 'exams', finalId), examData);
               await deleteDoc(doc(db, 'exams', editingExamId));
           }
       } else {
-          // 신규 등록
           const docSnap = await getDoc(doc(db, 'exams', finalId));
           if (docSnap.exists()) return showToast('이미 사용 중인 시험 코드입니다.');
           await setDoc(doc(db, 'exams', finalId), examData);
@@ -309,15 +316,17 @@ export default function App() {
                 <div className="grid gap-4">
                   {exams.map(exam => (
                     <div key={exam.id} className="bg-white p-6 rounded-[2rem] border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all">
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-bold text-xl">{exam.title}</h4>
                         <p className="text-xs text-blue-500 font-mono mb-1">코드: {exam.id}</p>
                         <p className="text-xs text-slate-400">문항: {exam.questions.length}개 / 랜덤: {exam.displayCount || '전체'}</p>
                       </div>
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <button onClick={() => copyToClipboard(exam.id)} className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold">🔗 링크복사</button>
-                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">✏️</button>
-                        <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl">🗑️</button>
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <button onClick={() => copyToClipboard(exam.id)} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm">🔗 링크복사</button>
+                        {/* 신규: 복제 버튼 아이콘 */}
+                        <button onClick={() => handleCopyExam(exam)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-colors" title="시험 복제">📋</button>
+                        <button onClick={() => handleEditExam(exam)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors" title="수정">✏️</button>
+                        <button onClick={async () => {if(window.confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, 'exams', exam.id))}} className="p-2 text-red-400 hover:bg-red-50 rounded-xl" title="삭제">🗑️</button>
                       </div>
                     </div>
                   ))}
@@ -375,7 +384,7 @@ export default function App() {
                         </div>
                       </div>
                     ))}
-                    {getQuestionStats().length === 0 && <p className="text-center text-slate-400 py-10 text-sm">기록이 쌓이면 통계가 표시됩니다.</p>}
+                    {getQuestionStats().length === 0 && <p className="text-center text-slate-400 py-10 text-sm">데이터가 쌓이면 통계가 표시됩니다.</p>}
                   </div>
                 </div>
               </div>
@@ -391,7 +400,7 @@ export default function App() {
                  <input value={newExamTitle} onChange={e => setNewExamTitle(e.target.value)} className="text-3xl font-black outline-none bg-transparent border-b-2 border-transparent focus:border-blue-500 transition-all" placeholder="시험 제목"/>
                  <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs font-bold text-slate-400">시험 코드(ID):</span>
-                    <input value={customExamId} onChange={e => setCustomExamId(e.target.value)} className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-1 rounded outline-none border border-blue-100" placeholder="미입력시 자동생성"/>
+                    <input value={customExamId} onChange={e => setCustomExamId(e.target.value)} className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-1 rounded outline-none border border-blue-100 w-fit" placeholder="미입력시 자동생성"/>
                  </div>
               </div>
             </div>
